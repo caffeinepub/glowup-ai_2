@@ -1,8 +1,15 @@
-import { Shield, Sparkles, Star } from "lucide-react";
+import { AlertCircle, Shield, Sparkles, Star } from "lucide-react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 export default function LoginPage() {
-  const { login, isLoggingIn } = useInternetIdentity();
+  const { login, isLoggingIn, isLoginError, loginError, isInitializing } =
+    useInternetIdentity();
+
+  const handleClick = () => {
+    if (!isLoggingIn) {
+      login();
+    }
+  };
 
   return (
     <div className="min-h-screen gradient-bg flex flex-col items-center justify-center p-6">
@@ -17,6 +24,7 @@ export default function LoginPage() {
           </p>
           <p className="text-white/50 text-sm mt-1">Made by @lord_ron666</p>
         </div>
+
         <div className="space-y-3 mb-10">
           {[
             { icon: Star, text: "AI-powered appearance analysis" },
@@ -34,14 +42,38 @@ export default function LoginPage() {
             </div>
           ))}
         </div>
+
+        {isLoginError && (
+          <div
+            data-ocid="login.error_state"
+            className="flex items-center gap-2 bg-red-500/20 border border-red-500/40 rounded-xl p-3 mb-4"
+          >
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+            <p className="text-red-300 text-sm">
+              {loginError?.message ?? "Login failed. Tap below to try again."}
+            </p>
+          </div>
+        )}
+
         <button
+          data-ocid="login.primary_button"
           type="button"
-          onClick={login}
-          disabled={isLoggingIn}
-          className="w-full py-4 rounded-2xl gradient-purple-pink text-white font-bold text-lg glow-purple hover:opacity-90 transition-all disabled:opacity-50"
+          onClick={handleClick}
+          disabled={isLoggingIn || isInitializing}
+          className="w-full py-4 rounded-2xl gradient-purple-pink text-white font-bold text-lg glow-purple hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+          style={{
+            pointerEvents: isLoggingIn || isInitializing ? "none" : "auto",
+          }}
         >
-          {isLoggingIn ? "Connecting..." : "Get Started"}
+          {isInitializing
+            ? "Loading..."
+            : isLoggingIn
+              ? "Connecting..."
+              : isLoginError
+                ? "Try Again"
+                : "Start My Glow Up"}
         </button>
+
         <p className="text-center text-white/40 text-xs mt-4">
           Powered by Internet Identity — no passwords needed
         </p>

@@ -223,24 +223,24 @@ export default function DashboardPage({
               type="button"
               key={plan.id}
               data-ocid={`dashboard.plans.card.${idx + 1}`}
-              className={`flex-none w-36 rounded-2xl border p-3 glass snap-start cursor-pointer hover:scale-105 transition-transform text-left ${plan.borderClass}`}
+              className={`flex-none w-44 rounded-2xl border p-4 glass snap-start cursor-pointer hover:scale-105 transition-transform text-left ${plan.borderClass}`}
               style={plan.glowStyle}
               onClick={() => setPage("subscription")}
             >
               <div
-                className={`inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full mb-2 ${plan.badgeBg} ${plan.tagColor}`}
+                className={`inline-block text-xs font-semibold px-2 py-0.5 rounded-full mb-3 ${plan.badgeBg} ${plan.tagColor}`}
               >
                 {plan.tag}
               </div>
-              <p className="text-white font-bold text-sm leading-tight">
+              <p className="text-white font-bold text-base leading-tight">
                 {plan.name}
               </p>
               <p
-                className={`font-black text-xl leading-tight ${plan.priceColor}`}
+                className={`font-black text-2xl leading-tight ${plan.priceColor}`}
               >
                 {plan.price}
               </p>
-              <p className="text-white/50 text-[11px] mt-1">{plan.scans}</p>
+              <p className="text-white/50 text-xs mt-1">{plan.scans}</p>
             </button>
           ))}
         </div>

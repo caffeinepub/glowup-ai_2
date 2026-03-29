@@ -100,7 +100,13 @@ export default function App() {
     <div
       className={`min-h-screen ${dark ? "gradient-bg" : "bg-gray-50"} flex flex-col`}
     >
-      <Navigation page={page} setPage={setPage} dark={dark} setDark={setDark} />
+      <Navigation
+        page={page}
+        setPage={setPage}
+        dark={dark}
+        setDark={setDark}
+        currentPlan={currentPlan}
+      />
       <main className="flex-1 overflow-auto">
         {page === "dashboard" && (
           <DashboardPage scanResult={scanResult} setPage={setPage} />

@@ -1,5 +1,5 @@
-import { Loader2, RefreshCw, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Gender } from "../backend";
 import { useActor } from "../hooks/useActor";
@@ -23,6 +23,16 @@ export default function ProfileSetupPage({ onDone }: { onDone: () => void }) {
   const [goals, setGoals] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  // After 4 seconds of waiting, stop blocking the button even if actor is still loading
+  const [actorTimedOut, setActorTimedOut] = useState(false);
+
+  useEffect(() => {
+    if (!actor && isFetching) {
+      const t = setTimeout(() => setActorTimedOut(true), 4000);
+      return () => clearTimeout(t);
+    }
+    if (actor) setActorTimedOut(false);
+  }, [actor, isFetching]);
 
   const toggleGoal = (g: string) =>
     setGoals((prev) =>
@@ -30,7 +40,11 @@ export default function ProfileSetupPage({ onDone }: { onDone: () => void }) {
     );
 
   const save = async () => {
-    if (!actor || !username || !age) return;
+    if (!username || !age) return;
+    if (!actor) {
+      toast.error("Still connecting — please try again in a moment.");
+      return;
+    }
     setSaving(true);
     setErrorMsg("");
     try {
@@ -63,8 +77,9 @@ export default function ProfileSetupPage({ onDone }: { onDone: () => void }) {
   const missingUsername = !username;
   const missingAge = !age;
 
-  const actorLoading = isFetching || !actor;
-  const isDisabled = saving || actorLoading || missingUsername || missingAge;
+  // Only show "Connecting..." if actor is loading AND we haven't timed out
+  const showConnecting = !actor && isFetching && !actorTimedOut;
+  const isDisabled = saving || showConnecting || missingUsername || missingAge;
 
   return (
     <div className="min-h-screen gradient-bg flex flex-col items-center justify-center p-6">
@@ -177,7 +192,7 @@ export default function ProfileSetupPage({ onDone }: { onDone: () => void }) {
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Saving...
               </>
-            ) : actorLoading ? (
+            ) : showConnecting ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
                 Connecting...
