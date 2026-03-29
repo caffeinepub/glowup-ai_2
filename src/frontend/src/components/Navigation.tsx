@@ -52,24 +52,49 @@ export default function Navigation({
         <span className="font-bold text-white text-lg">GlowUp AI</span>
       </div>
       <div className="flex items-center gap-1 overflow-x-auto">
-        {navItems.map((item) => (
-          <button
-            type="button"
-            key={item.id}
-            data-ocid={`nav.${item.id}.link`}
-            onClick={() => setPage(item.id)}
-            className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              page === item.id
-                ? "gradient-purple-pink text-white"
-                : item.id === "subscription"
-                  ? "text-yellow-400/80 hover:text-yellow-300 hover:bg-white/10"
+        {navItems.map((item) => {
+          const isPlans = item.id === "subscription";
+          const isActive = page === item.id;
+
+          if (isPlans && !isActive) {
+            return (
+              <button
+                type="button"
+                key={item.id}
+                data-ocid="nav.subscription.link"
+                onClick={() => setPage(item.id)}
+                className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all animate-gold-glow border border-yellow-400/50 bg-yellow-400/10"
+                style={{ color: "#ffd700" }}
+              >
+                <Crown
+                  className="w-4 h-4"
+                  style={{
+                    color: "#ffd700",
+                    filter: "drop-shadow(0 0 4px rgba(234,179,8,0.8))",
+                  }}
+                />
+                <span className="hidden sm:block gold-shimmer-text">Plans</span>
+              </button>
+            );
+          }
+
+          return (
+            <button
+              type="button"
+              key={item.id}
+              data-ocid={`nav.${item.id}.link`}
+              onClick={() => setPage(item.id)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                isActive
+                  ? "gradient-purple-pink text-white"
                   : "text-white/60 hover:text-white hover:bg-white/10"
-            }`}
-          >
-            <item.icon className="w-4 h-4" />
-            <span className="hidden sm:block">{item.label}</span>
-          </button>
-        ))}
+              }`}
+            >
+              <item.icon className="w-4 h-4" />
+              <span className="hidden sm:block">{item.label}</span>
+            </button>
+          );
+        })}
       </div>
       <div className="flex items-center gap-2">
         <button
