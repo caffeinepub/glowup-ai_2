@@ -26,6 +26,10 @@ export type Page =
 
 export type Plan = "basic" | "chad" | "adam";
 
+// Owner principal ID -- always gets True Adam access for free
+const OWNER_PRINCIPAL =
+  "smham-saxos-awds3-qzr77-qqzyf-6hnh6-eqqk7-d4duo-pkl6s-ttkzc-wae";
+
 export default function App() {
   const { identity, isInitializing } = useInternetIdentity();
   const { actor } = useActor();
@@ -43,9 +47,17 @@ export default function App() {
   const [scanCount, setScanCountState] = useState<number>(
     Number.parseInt(localStorage.getItem("glowup_scan_count") || "0", 10),
   );
+
+  // Determine if logged-in user is the owner
+  const principalText = identity?.getPrincipal().toText() ?? "";
+  const isOwner = principalText === OWNER_PRINCIPAL;
+
+  // Owner always gets True Adam; others read from localStorage
   const [currentPlan, setCurrentPlanState] = useState<Plan>(
     (localStorage.getItem("glowup_plan") as Plan) || "basic",
   );
+
+  const effectivePlan: Plan = isOwner ? "adam" : currentPlan;
 
   const setScanCount = (n: number) => {
     setScanCountState(n);
@@ -105,7 +117,7 @@ export default function App() {
         setPage={setPage}
         dark={dark}
         setDark={setDark}
-        currentPlan={currentPlan}
+        currentPlan={effectivePlan}
       />
       <main className="flex-1 overflow-auto">
         {page === "dashboard" && (
@@ -116,7 +128,7 @@ export default function App() {
             setScanResult={setScanResult}
             setPage={setPage}
             scanCount={scanCount}
-            currentPlan={currentPlan}
+            currentPlan={effectivePlan}
             onScanComplete={() => setScanCount(scanCount + 1)}
           />
         )}
@@ -127,9 +139,10 @@ export default function App() {
         {page === "chat" && <ChatPage />}
         {page === "subscription" && (
           <SubscriptionPage
-            currentPlan={currentPlan}
+            currentPlan={effectivePlan}
             setCurrentPlan={setCurrentPlan}
             scanCount={scanCount}
+            isOwner={isOwner}
           />
         )}
       </main>

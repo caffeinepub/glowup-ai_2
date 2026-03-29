@@ -25,6 +25,93 @@ interface AnalysisResult {
   photoUrl: string;
 }
 
+const RATING_TIERS = [
+  {
+    min: 0,
+    max: 4.9,
+    label: "Sub-5",
+    emoji: "💀",
+    color: "text-red-500",
+    bg: "bg-red-500/20",
+    border: "border-red-500/40",
+    description:
+      "Real talk — you've got significant work to do. Start with basic grooming, skincare, and posture. Improvement is 100% possible with consistency.",
+  },
+  {
+    min: 5.0,
+    max: 5.9,
+    label: "LTN",
+    emoji: "😐",
+    color: "text-orange-400",
+    bg: "bg-orange-500/20",
+    border: "border-orange-500/40",
+    description:
+      "Below average right now, but fixable. A solid skincare routine, better haircut, and gym progress can push you up a tier quickly.",
+  },
+  {
+    min: 6.0,
+    max: 6.4,
+    label: "MTN",
+    emoji: "🙂",
+    color: "text-yellow-400",
+    bg: "bg-yellow-500/20",
+    border: "border-yellow-500/40",
+    description:
+      "Average — you blend in with most guys. You're not at a disadvantage, but targeted improvements in grooming and style will make a real difference.",
+  },
+  {
+    min: 6.5,
+    max: 7.4,
+    label: "HTN",
+    emoji: "😎",
+    color: "text-lime-400",
+    bg: "bg-lime-500/20",
+    border: "border-lime-500/40",
+    description:
+      "Above average and noticeable. You've got a decent foundation. Sharpen your style, stay consistent with skincare, and you could push into elite territory.",
+  },
+  {
+    min: 7.5,
+    max: 8.4,
+    label: "Chad Lite",
+    emoji: "🔥",
+    color: "text-blue-400",
+    bg: "bg-blue-500/20",
+    border: "border-blue-500/40",
+    description:
+      "Genuinely attractive — you turn heads. Most people will never reach this tier. Keep your grooming, fitness, and style locked in.",
+  },
+  {
+    min: 8.5,
+    max: 9.4,
+    label: "Chad",
+    emoji: "👑",
+    color: "text-purple-400",
+    bg: "bg-purple-500/20",
+    border: "border-purple-500/40",
+    description:
+      "Elite attractiveness. Top 5% globally. You've won the genetic lottery and made the most of it. Maintain everything.",
+  },
+  {
+    min: 9.5,
+    max: 10,
+    label: "True Adam",
+    emoji: "⚡",
+    color: "text-amber-400",
+    bg: "bg-amber-500/20",
+    border: "border-amber-500/40 shadow-amber-500/50",
+    description:
+      "Legendary. Near-perfect facial structure. Less than 1% of people score here. You are operating at a completely different level.",
+  },
+] as const;
+
+function getRatingTier(score: number) {
+  return (
+    RATING_TIERS.find((t) => score >= t.min && score <= t.max) ??
+    RATING_TIERS[0]
+  );
+}
+
 const ANALYSIS_STAGES = [
   "Detecting skin regions...",
   "Checking for acne & redness...",
@@ -107,102 +194,175 @@ function analyzeImageCanvas(dataUrl: string): Promise<AnalysisResult> {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      const size = 300;
-      canvas.width = size;
-      canvas.height = size;
+      const SIZE = 400;
+      canvas.width = SIZE;
+      canvas.height = SIZE;
       const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(img, 0, 0, size, size);
+      ctx.drawImage(img, 0, 0, SIZE, SIZE);
 
-      const margin = Math.floor(size * 0.2);
-      const w = size - margin * 2;
-      const h = size - margin * 2;
-      const imageData = ctx.getImageData(margin, margin, w, h);
-      const pixels = imageData.data;
+      // ── Helpers ──────────────────────────────────────────────────────────
+      const getZone = (x: number, y: number, w: number, h: number) =>
+        ctx.getImageData(x, y, w, h).data;
 
-      let totalR = 0;
-      let totalG = 0;
-      let totalB = 0;
-      const luminances: number[] = [];
-      const pixelCount = w * h;
+      const stats = (pixels: Uint8ClampedArray) => {
+        let sumR = 0;
+        let sumG = 0;
+        let sumB = 0;
+        let sumLum = 0;
+        const lums: number[] = [];
+        const n = pixels.length / 4;
+        for (let i = 0; i < pixels.length; i += 4) {
+          const r = pixels[i];
+          const g = pixels[i + 1];
+          const b = pixels[i + 2];
+          sumR += r;
+          sumG += g;
+          sumB += b;
+          const l = 0.299 * r + 0.587 * g + 0.114 * b;
+          sumLum += l;
+          lums.push(l);
+        }
+        const avgR = sumR / n;
+        const avgG = sumG / n;
+        const avgB = sumB / n;
+        const avgLum = sumLum / n;
+        const variance = lums.reduce((a, l) => a + (l - avgLum) ** 2, 0) / n;
+        const stdDev = Math.sqrt(variance);
+        // saturation (0-1)
+        const maxC = Math.max(avgR, avgG, avgB) / 255;
+        const minC = Math.min(avgR, avgG, avgB) / 255;
+        const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+        // redness ratio
+        const redness = avgR / (avgG + 1);
+        // edge density (roughness)
+        let edges = 0;
+        for (let i = 4; i < pixels.length; i += 4) {
+          const prevL =
+            0.299 * pixels[i - 4] +
+            0.587 * pixels[i - 3] +
+            0.114 * pixels[i - 2];
+          const currL =
+            0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
+          edges += Math.abs(currL - prevL);
+        }
+        const edgeDensity = edges / n;
+        return { avgR, avgG, avgB, avgLum, stdDev, sat, redness, edgeDensity };
+      };
 
-      for (let i = 0; i < pixels.length; i += 4) {
-        const r = pixels[i];
-        const g = pixels[i + 1];
-        const b = pixels[i + 2];
-        totalR += r;
-        totalG += g;
-        totalB += b;
-        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-        luminances.push(lum);
+      // ── Zone breakdown (3x3 grid, ignore corners for face focus) ─────────
+      const zone = SIZE / 3;
+      const zones = [
+        stats(getZone(zone, 0, zone, zone)), // top-center (forehead)
+        stats(getZone(0, zone, zone, zone)), // mid-left (left cheek)
+        stats(getZone(zone, zone, zone, zone)), // mid-center (nose/lips)
+        stats(getZone(zone * 2, zone, zone, zone)), // mid-right (right cheek)
+        stats(getZone(zone, zone * 2, zone, zone)), // chin area
+      ];
+
+      const avg = (fn: (z: (typeof zones)[0]) => number) =>
+        zones.reduce((a, z) => a + fn(z), 0) / zones.length;
+
+      const avgLum = avg((z) => z.avgLum);
+      const avgStdDev = avg((z) => z.stdDev);
+      const avgRedness = avg((z) => z.redness);
+      const avgEdge = avg((z) => z.edgeDensity);
+      const avgSat = avg((z) => z.sat);
+
+      // symmetry: compare left vs right cheek luminance difference
+      const leftLum = zones[1].avgLum;
+      const rightLum = zones[3].avgLum;
+      const symDiff = Math.abs(leftLum - rightLum);
+
+      // ── Deterministic image fingerprint for consistency ───────────────────
+      const full = ctx.getImageData(0, 0, SIZE, SIZE).data;
+      let hash = 0;
+      for (let i = 0; i < full.length; i += 40) {
+        hash = (hash * 31 + full[i]) >>> 0;
       }
+      const hashNudge = ((hash % 100) / 100 - 0.5) * 0.6; // ±0.3 nudge
 
-      const avgR = totalR / pixelCount;
-      const avgG = totalG / pixelCount;
-      const avgB = totalB / pixelCount;
-      const avgLum = luminances.reduce((a, b) => a + b, 0) / luminances.length;
-
-      const lumVariance =
-        luminances.reduce((acc, l) => acc + (l - avgLum) ** 2, 0) /
-        luminances.length;
-      const lumStdDev = Math.sqrt(lumVariance);
-
-      const rednessRatio = avgR / (avgG + 1);
-
-      let roughnessSum = 0;
-      let roughnessCount = 0;
-      for (let i = 4; i < pixels.length; i += 4) {
-        const prevLum =
-          0.299 * pixels[i - 4] + 0.587 * pixels[i - 3] + 0.114 * pixels[i - 2];
-        const currLum =
-          0.299 * pixels[i] + 0.587 * pixels[i + 1] + 0.114 * pixels[i + 2];
-        roughnessSum += Math.abs(currLum - prevLum);
-        roughnessCount++;
-      }
-      const avgRoughness = roughnessSum / roughnessCount;
-
-      const rednessScore = Math.min(10, Math.max(0, (rednessRatio - 1.0) * 20));
-      const uniformityBadScore = Math.min(10, lumStdDev / 8);
-      const brightnessBadScore =
-        avgLum < 80 ? Math.min(10, (80 - avgLum) / 8) : 0;
-      const roughnessBadScore = Math.min(10, avgRoughness / 3);
-
-      const conditions: SkinCondition[] = [];
-      if (rednessScore > 4 && uniformityBadScore > 4) {
-        conditions.push("acne");
-      } else if (uniformityBadScore > 5) {
-        conditions.push("uneven");
-      }
-      if (brightnessBadScore > 4) {
-        conditions.push("dull");
-      }
-      if (roughnessBadScore > 5 && !conditions.includes("acne")) {
-        conditions.push("rough");
-      }
-      if (conditions.length === 0) {
-        conditions.push("healthy");
-      }
-
-      const skinScore = Math.round(
-        Math.max(
-          3,
-          10 -
-            rednessScore * 0.4 -
-            uniformityBadScore * 0.3 -
-            roughnessBadScore * 0.3,
+      // ── Sub-scores (0-10) ─────────────────────────────────────────────────
+      // Skin clarity: penalise redness, high variance, and high edge density (harsher penalties)
+      const skinClarity = Math.max(
+        1,
+        Math.min(
+          10,
+          10 - (avgRedness - 1.0) * 12 - avgStdDev * 0.06 - avgEdge * 0.25,
         ),
       );
-      const brightnessBonus = avgLum > 80 && avgLum < 200 ? 1 : 0;
-      const skin = Math.min(10, skinScore + brightnessBonus);
 
-      const colorRange = Math.abs(avgR - avgB);
-      const hair = Math.round(Math.min(10, Math.max(4, 6 + colorRange / 30)));
-      const symmetry = Math.round(
-        Math.min(10, Math.max(5, 8 - lumStdDev / 20)),
+      // Brightness/health: ideal luminance ~100-180
+      const lumScore =
+        avgLum < 50
+          ? 3
+          : avgLum < 80
+            ? 5 + (avgLum - 50) / 15
+            : avgLum < 180
+              ? 8 + (avgLum - 80) / 200
+              : avgLum < 220
+                ? 7 - (avgLum - 180) / 20
+                : 4;
+
+      // Symmetry: more sensitive to asymmetry (divider 3 instead of 5)
+      const symmetryScore = Math.max(2, Math.min(10, 10 - symDiff / 3));
+
+      // Texture: smooth texture = lower edgeDensity (but some is natural)
+      const textureScore = Math.max(
+        2,
+        Math.min(10, 10 - Math.max(0, avgEdge - 3) * 0.5),
       );
+
+      // Saturation: healthy skin has moderate saturation (0.1-0.35)
+      const satScore =
+        avgSat < 0.05
+          ? 5
+          : avgSat < 0.15
+            ? 6 + avgSat * 10
+            : avgSat < 0.35
+              ? 8.5
+              : avgSat < 0.5
+                ? 8 - (avgSat - 0.35) * 6
+                : 5;
+
+      // ── Weighted composite ────────────────────────────────────────────────
+      const composite =
+        skinClarity * 0.3 +
+        lumScore * 0.2 +
+        symmetryScore * 0.25 +
+        textureScore * 0.15 +
+        satScore * 0.1;
+
+      // ── Strict bell curve: most people 5.0-6.5, Chad/True Adam genuinely rare ──
+      const rawNorm = composite / 10; // 0-1
+      // Power curve 2.5 compresses mid-high scores heavily
+      const curved = rawNorm ** 2.5;
+      // Base 2.0, max range 8.0, so perfect=10, average composite→MTN/HTN range
+      const normalised = 2.0 + curved * 8.0 + hashNudge * 0.4;
+      const overall = Math.max(
+        1.0,
+        Math.min(10.0, Math.round(normalised * 10) / 10),
+      );
+
+      // ── Sub-scores for display ────────────────────────────────────────────
+      const skin = Math.round(
+        Math.min(10, Math.max(1, skinClarity + hashNudge * 0.5)),
+      );
+      const hair = Math.round(
+        Math.min(10, Math.max(1, lumScore + hashNudge * 0.3 + 0.5)),
+      );
+      const symmetry = Math.round(Math.min(10, Math.max(1, symmetryScore)));
       const style = Math.round(
-        Math.min(10, Math.max(4, 6 + (avgB > avgR ? 1 : 0))),
+        Math.min(10, Math.max(1, satScore + hashNudge * 0.4 + 1)),
       );
-      const overall = Math.round((skin + hair + symmetry + style) / 4);
+
+      // ── Skin conditions ───────────────────────────────────────────────────
+      const conditions: SkinCondition[] = [];
+      if (avgRedness > 1.25 && avgStdDev > 30) conditions.push("acne");
+      else if (avgStdDev > 35) conditions.push("uneven");
+      if (avgLum < 90) conditions.push("dull");
+      if (avgEdge > 12 && !conditions.includes("acne"))
+        conditions.push("rough");
+      if (conditions.length === 0) conditions.push("healthy");
 
       resolve({
         skin,
@@ -345,7 +505,15 @@ export default function ScanPage({
   };
 
   const scoreColor = (s: number) =>
-    s >= 8 ? "text-green-400" : s >= 6 ? "text-yellow-400" : "text-red-400";
+    s >= 8.5
+      ? "text-amber-400"
+      : s >= 7.5
+        ? "text-purple-400"
+        : s >= 6.5
+          ? "text-blue-400"
+          : s >= 5.0
+            ? "text-yellow-400"
+            : "text-red-400";
 
   // Locked / upgrade wall
   if (isLocked) {
@@ -539,9 +707,40 @@ export default function ScanPage({
             <div
               className={`text-6xl font-black mb-1 ${scoreColor(result.overall)}`}
             >
-              {result.overall}
+              {result.overall.toFixed(1)}
               <span className="text-2xl text-white/40">/10</span>
             </div>
+
+            {/* Tier Badge */}
+            {(() => {
+              const tier = getRatingTier(result.overall);
+              return (
+                <div
+                  className={`mt-3 mx-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl border ${tier.bg} ${tier.border}`}
+                >
+                  <span className="text-2xl">{tier.emoji}</span>
+                  <div className="text-left">
+                    <div
+                      className={`text-xl font-black tracking-wide ${tier.color}`}
+                    >
+                      {tier.label}
+                    </div>
+                    <div className="text-white/50 text-xs">Rating Tier</div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Tier Description */}
+            {(() => {
+              const tier = getRatingTier(result.overall);
+              return (
+                <p className="text-white/60 text-xs mt-3 leading-relaxed px-2">
+                  {tier.description}
+                </p>
+              );
+            })()}
+
             <div className="flex justify-center gap-4 mt-4">
               {(
                 [

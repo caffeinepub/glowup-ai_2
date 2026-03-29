@@ -76,10 +76,12 @@ const PLANS: PlanConfig[] = [
 export default function SubscriptionPage({
   currentPlan,
   scanCount,
+  isOwner,
 }: {
   currentPlan: Plan;
   setCurrentPlan: (p: Plan) => void;
   scanCount: number;
+  isOwner?: boolean;
 }) {
   const limit = PLAN_LIMITS[currentPlan];
   const usagePercent = Math.min(100, Math.round((scanCount / limit) * 100));
@@ -97,18 +99,36 @@ export default function SubscriptionPage({
         </p>
       </div>
 
-      {/* Info banner */}
-      <div
-        className="flex items-start gap-3 glass rounded-2xl p-4 border border-blue-500/20"
-        data-ocid="subscription.panel"
-      >
-        <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-        <p className="text-blue-300 text-xs leading-relaxed">
-          <span className="font-semibold">Payment coming soon.</span> Preview
-          your plan options below — payment integration will be enabled shortly.
-          Your current plan is active.
-        </p>
-      </div>
+      {/* Owner badge */}
+      {isOwner && (
+        <div
+          className="flex items-center gap-3 rounded-2xl p-4 border border-yellow-400/40"
+          style={{
+            background: "rgba(234,179,8,0.08)",
+            boxShadow: "0 0 20px rgba(234,179,8,0.15)",
+          }}
+        >
+          <Crown className="w-5 h-5 text-yellow-400 shrink-0" />
+          <p className="text-yellow-300 text-sm font-semibold">
+            Owner access — you have full True Adam access for free.
+          </p>
+        </div>
+      )}
+
+      {/* Info banner (non-owners only) */}
+      {!isOwner && (
+        <div
+          className="flex items-start gap-3 glass rounded-2xl p-4 border border-blue-500/20"
+          data-ocid="subscription.panel"
+        >
+          <Info className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+          <p className="text-blue-300 text-xs leading-relaxed">
+            <span className="font-semibold">Payment coming soon.</span> Preview
+            your plan options below — payment integration will be enabled
+            shortly. Your current plan is active.
+          </p>
+        </div>
+      )}
 
       {/* Current usage */}
       <div className="glass rounded-2xl p-4 space-y-2">
@@ -193,7 +213,7 @@ export default function SubscriptionPage({
                 </div>
                 <div className="text-right">
                   <span className="text-white font-black text-xl">
-                    {plan.price}
+                    {plan.id === "adam" && isOwner ? "Free" : plan.price}
                   </span>
                 </div>
               </div>
@@ -218,7 +238,18 @@ export default function SubscriptionPage({
               </div>
 
               {/* CTA */}
-              {plan.priceNum === 0 ? (
+              {plan.id === "adam" && isOwner ? (
+                <div
+                  className="w-full py-3 rounded-2xl text-sm font-bold text-center"
+                  style={{
+                    background: "rgba(234,179,8,0.15)",
+                    color: "#ffd700",
+                    border: "1px solid rgba(234,179,8,0.3)",
+                  }}
+                >
+                  ✓ Owner Access — Active
+                </div>
+              ) : plan.priceNum === 0 ? (
                 <button
                   type="button"
                   disabled
@@ -257,20 +288,6 @@ export default function SubscriptionPage({
         Prices are in USD. Subscriptions will be billed monthly via Stripe when
         payment is enabled.
       </p>
-
-      <footer className="text-center pt-2">
-        <p className="text-white/20 text-xs">
-          © {new Date().getFullYear()}. Built with love using{" "}
-          <a
-            href={`https://caffeine.ai?utm_source=caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-white/40 transition-colors"
-          >
-            caffeine.ai
-          </a>
-        </p>
-      </footer>
     </div>
   );
 }
